@@ -41,3 +41,44 @@ Every entity and relationship has been carefully normalized and translated into 
 - **Draw.io** / Lucidchart for visual modeling  
 - Design decisions based on real-world ride-sharing use cases
 
+## 🛠 Implementation in MySQL
+
+The ER model was translated into a fully functional **MySQL database system**, including:
+
+### 🧾 Schema Implementation
+- Created all entities as **relational tables** using `CREATE TABLE` statements.
+- Applied **primary and foreign key constraints** to ensure referential integrity.
+- Used appropriate **data types** (e.g., `VARCHAR`, `DATE`, `DECIMAL`, `ENUM`) for real-world modeling.
+- Added **CHECK constraints**, `NOT NULL`, and `AUTO_INCREMENT` where needed.
+
+### 🗃 Sample Tables Created
+- `Users(User_ID, Name, Email, Phone)`
+- `Drivers(Driver_ID, Name, Email, Phone, Vehicle_ID)`
+- `Vehicles(Vehicle_ID, Type, Model, Driver_ID)`
+- `Rides(Ride_ID, User_ID, Driver_ID, Pickup, Dropoff, Fare, Status, Start_Time, End_Time)`
+- `Payments(Payment_ID, Ride_ID, Promo_ID, Final_Amount, Pay_Mode, Status)`
+- `Ratings(Rating_ID, Ride_ID, User_ID, Driver_ID, Rating, Feedback)`
+- `Discounts(Promo_ID, Code, Offer_Amount, Expiry_Date)`
+- `Cancellations(Ride_ID, Cancel_Time, Penalty)`
+
+> All schema definitions are available in `schema.sql`.
+
+---
+
+### 🔍 SQL Query Highlights
+- **SELECT queries** for trip history, user analytics, driver ratings
+- **JOINs** for multi-table queries involving rides, payments, ratings
+- **GROUP BY** and **aggregation** for revenue and performance reports
+- **Subqueries** to find top drivers, most active users, etc.
+- **UPDATE** and **DELETE** operations for ride status changes and cancellations
+
+---
+
+### 🧪 Data Population & Testing
+- Populated with **realistic test data** for 50+ users, drivers, and 100+ rides
+- Validated:
+  - Ride booking with driver availability
+  - Discount code application
+  - Payment workflow
+  - Cancellation penalties
+  - Feedback submission
