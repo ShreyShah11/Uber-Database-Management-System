@@ -1,0 +1,203 @@
+Q1-) This query shows the total profit from completed rides for each day of the week.
+It groups and sums fares by day, then orders the results from Sunday to Saturday.
+This helps identify which days bring in the most revenue.
+
+SELECT 
+  TO_CHAR(START_TIME, 'Day') AS day_of_week,
+  ROUND(SUM(FARE), 2) AS total_profit
+FROM RIDE
+WHERE STATUS = 'Completed'
+GROUP BY TO_CHAR(START_TIME, 'Day'), EXTRACT(DOW FROM START_TIME)
+ORDER BY EXTRACT(DOW FROM START_TIME);
+
+
+Q2-) This SQL query returns the top 5 promo codes that offer the highest average discount. It calculates the average discount amount (OFF_AMT) for each promo code and counts how many times each was used
+
+- top 5 promocode avarage discount wise
+SELECT 
+  d.CODE, 
+  ROUND(AVG(d.OFF_AMT), 2) AS avg_discount, 
+  COUNT(*) AS times_used
+FROM DISCOUNTS d
+GROUP BY d.CODE
+ORDER BY avg_discount DESC
+LIMIT 5;
+
+
+Q3- ) This query provides the average final payment amount for each type of payment mode used by customers (like card, cash, or wallet). It helps identify which payment methods are generally associated with higher transaction values by sorting them in descending order.
+
+SELECT 
+  PAY_MODE,
+  ROUND(AVG(FINAL_AMOUNT), 2) AS avg_payment
+FROM PAYMENT
+GROUP BY PAY_MODE
+ORDER BY avg_payment DESC;
+
+
+Q4-) This query shows the average ride duration (in minutes) and total number of rides for each type of vehicle. It only includes vehicle types that have been used in at least 10 rides, helping to analyze performance and usage patterns of popular vehicle types.
+
+SELECT 
+    v.TYPE, 
+    AVG(EXTRACT(EPOCH FROM (r.END_TIME - r.START_TIME)) / 60) AS avg_duration_minutes,
+    COUNT(*) AS total_rides
+FROM VEHICLES v
+JOIN RIDE r ON v.VEHICLE_ID = r.VEHICLE_ID
+GROUP BY v.TYPE
+HAVING COUNT(*) >= 10;
+
+
+Q5-)This query gives a summary of each user's ride activity, showing how many rides they have completed and how many they have canceled. It includes all users, even those with no rides, providing a clear view of user engagement and behavior on the platform.
+
+SELECT 
+    u.USER_ID, 
+    u.NAME,
+    COUNT(DISTINCT r.RIDE_ID) FILTER (WHERE r.STATUS = 'Completed') AS completed_rides,
+    COUNT(DISTINCT c.RIDE_ID) AS cancelled_rides
+FROM "USER" u
+LEFT JOIN RIDE r ON u.USER_ID = r.USER_ID
+LEFT JOIN CANCELS c ON u.USER_ID = c.USER_ID
+GROUP BY u.USER_ID, u.NAME;
+
+
+Q6-) This query returns the top 5 users with the highest number of completed rides that were not canceled. It helps identify the most active and reliable users based on their genuine ride completions.
+
+SELECT 
+    u.USER_ID, 
+    u.NAME, 
+    COUNT(r.RIDE_ID) AS completed_rides
+FROM "USER" u
+JOIN RIDE r ON u.USER_ID = r.USER_ID
+LEFT JOIN CANCELS c ON u.USER_ID = c.USER_ID AND r.RIDE_ID = c.RIDE_ID
+WHERE r.STATUS = 'Completed' AND c.RIDE_ID IS NULL
+GROUP BY u.USER_ID, u.NAME
+ORDER BY completed_rides DESC
+LIMIT 5;
+
+
+Q7-) This query lists all active coupon codes (i.e., not expired), along with their attributes, expiry dates, and how many times they've been used in payments. It helps track the most frequently used active promo codes, ordered by usage count.
+
+--ACTIVE COUPNE CODE
+
+SELECT 
+    d.CODE, 
+    d.ATTRIBUTE, 
+    d.EXPIRY_DATE, 
+    COUNT(p.PAY_ID) AS usage_count
+FROM DISCOUNTS d
+LEFT JOIN PAYMENT p ON d.PROMO_ID = p.PROMO_ID
+WHERE d.EXPIRY_DATE >= CURRENT_DATE
+GROUP BY d.CODE, d.ATTRIBUTE, d.EXPIRY_DATE
+ORDER BY usage_count DESC;
+
+
+Q8-) This query calculates the total rides and total profit earned by each driver, and assigns a rank to each driver based on the number of rides and the total profit earned. The ranking is ordered first by the total number of rides (from highest to lowest), and then by the total profit (also from highest to lowest). 
+
+-- driver wise profit
+SELECT 
+    d.DRIVER_ID, 
+    d.NAME,
+    COUNT(a.RIDE_ID) AS total_rides,
+    SUM(a.PROFIT_EARNED) AS total_profit,
+    RANK() OVER (
+        ORDER BY COUNT(a.RIDE_ID) DESC, SUM(a.PROFIT_EARNED) DESC
+    ) AS driver_rank
+FROM DRIVER d
+JOIN ACCEPTS a ON d.DRIVER_ID = a.DRIVER_ID
+GROUP BY d.DRIVER_ID, d.NAME;
+
+
+Q9-) This query identifies users who have an average fare higher than the global average fare. It first calculates the global average fare from all completed rides, then for each user, it computes their average fare. Only users whose average fare exceeds the global average are included in the result, helping to highlight users who tend to pay more on average compared to others.
+
+-- avrG > GLOBAL FAIR
+
+WITH avg_fare AS (
+    SELECT AVG(FARE) AS global_avg_fare FROM RIDE
+)
+SELECT 
+    u.USER_ID, 
+    u.NAME, 
+    AVG(r.FARE) AS user_avg_fare
+FROM "USER" u
+JOIN RIDE r ON u.USER_ID = r.USER_ID
+GROUP BY u.USER_ID, u.NAME
+HAVING AVG(r.FARE) > (SELECT global_avg_fare FROM avg_fare);
+
+
+Q10-) This query identifies the top 10 most frequent pickup and dropoff locations based on the number of rides between them. It counts how many times each combination of pickup and dropoff locations occurs, orders them by the highest frequency, and limits the result to the top 10 pairs, helping to identify the most common routes in the system.
+
+-- most freq pickup and 
+
+SELECT 
+    PICKUP, 
+    DROPOFF, 
+    COUNT(*) AS frequency
+FROM RIDE
+GROUP BY PICKUP, DROPOFF
+ORDER BY frequency DESC
+LIMIT 10;
+
+
+Q11 -) This query identifies drivers who have not accepted any rides in the past 30 days. It does so by first selecting all drivers who have accepted rides in the last 30 days, and then finds drivers who are not in this list. This helps to highlight inactive drivers who may need re-engagement or attention.
+
+-- driver that not get ride in 30 days
+SELECT d.DRIVER_ID, d.NAME
+FROM DRIVER d
+WHERE d.DRIVER_ID NOT IN (
+    SELECT DISTINCT a.DRIVER_ID
+    FROM ACCEPTS a
+    JOIN RIDE r ON a.RIDE_ID = r.RIDE_ID
+    WHERE r.START_TIME >= CURRENT_DATE - INTERVAL '30 days'
+);
+
+
+
+Q12-) This query calculates the average penalty incurred by each user for canceling rides. It joins the USER table with the CANCELS table, computes the average penalty (PENALTY) for each user, and groups the result by user ID and name.
+
+-- avarage penalty
+SELECT 
+    u.USER_ID, 
+    u.NAME, 
+    AVG(c.PENALTY) AS avg_penalty
+FROM "USER" u
+JOIN CANCELS c ON u.USER_ID = c.USER_ID
+GROUP BY u.USER_ID, u.NAME;
+
+
+
+Q13-)This query calculates the total fare collected for each vehicle model by summing up the fares of all rides associated with that model. It groups the results by the vehicle model and orders them in descending order based on the total fare, helping to identify which vehicle models have generated the highest revenue.
+
+SELECT 
+    v.MODEL, 
+    SUM(r.FARE) AS total_fare
+FROM VEHICLES v
+JOIN RIDE r ON v.VEHICLE_ID = r.VEHICLE_ID
+GROUP BY v.MODEL
+ORDER BY total_fare DESC;
+
+
+
+Q14-)This query retrieves information about drivers who own more than one vehicle. It shows the total number of vehicles owned by each driver and the total number of rides taken using those vehicles. The results are filtered to include only drivers who own more than one vehicle. 
+
+ SELECT 
+    d.DRIVER_ID, 
+    d.NAME, 
+    COUNT(DISTINCT o.VEHICLE_ID) AS total_vehicles,
+    COUNT(DISTINCT r.RIDE_ID) AS total_rides
+FROM DRIVER d
+JOIN OWNS o ON d.DRIVER_ID = o.DRIVER_ID
+JOIN VEHICLES v ON o.VEHICLE_ID = v.VEHICLE_ID
+JOIN RIDE r ON v.VEHICLE_ID = r.VEHICLE_ID
+GROUP BY d.DRIVER_ID, d.NAME
+HAVING COUNT(DISTINCT o.VEHICLE_ID) > 1;
+
+
+Q15-) This query identifies the top 5 peak hours with the highest number of rides. It extracts the hour from the ride start time and counts how many rides occurred during each hour. The results are ordered by ride count in descending order, helping to identify the hours of the day when ride demand is highest.
+
+-- peak hour
+SELECT 
+    EXTRACT(HOUR FROM START_TIME) AS hour, 
+    COUNT(*) AS ride_count
+FROM RIDE
+GROUP BY hour
+ORDER BY ride_count DESC
+LIMIT 5;
